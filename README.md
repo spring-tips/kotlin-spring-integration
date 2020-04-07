@@ -83,7 +83,15 @@ class ChannelsConfiguration {
 ```
 
 
-We can inject the configuration class and then invoke the methods to dereference the indivudual chanensl.
+We can inject the configuration class and then invoke the methods to dereference the indivudual chanensl. 
+
+Let's look at the main integation flow. the Spring Integration jav dsL has always been convenient but it's ven more accesible from the Kotli languge. In this configuration class i define  an `IntegrationFlow` using the Kotlin `integrationFlow` factory function. It in turns takes a lambda that acts as the context off ofo which I hang the various steps int he integration flow. I construct the `IntegrationFlow` by pointing it to where new messages that initiate the flow will arrive. In this case, the messages arrive after consumin th messages from an inbound file adapter that monitors a directory (`$HOME/Desktop/in`) every 500 milliseconds. The schedule on which new messages are polled is determined by the configured poller. Here too the SPring Integration KOtlin DSL makes things easier. This is much cleaner, to my eyes than the original Java configuration DSL. 
+
+As soon as the files arrive, they're wrapped in a `Message<File>` and forwarddd to the `filter<File>` extnesion function. note that here I dont need to specify `File.class` - Kotlin has pseudo reififed generics - the type of the argument is captured in the generic invocation of the function itself. No need fr a type token. Yje `filter` function expects a lambda that inpsects the current message (available throught he implicit parameter `it`) and confirms its a file (and not a directort or something else). If it is, the flow continues to a router.
+
+
+the router then inspects the message and determines on whcih outbound `MessageChannel` the resulting message should be forwarded. This router use Kotlin's nifty `when` expression - kind of like a supercharged `switch` statement in Java. (NB: there is a switch expression in Java that is very promising but then how many of you are usin tht right now?). The `when` expression producs a value. In kOtlin the last expression of the function is the return value (you almost never need to specify `return`).  In this case, the last expression of the function is the result from the `when` expression, which happens to be a `MessageChannel`. 
+
 
 
 ```kotlin 
@@ -110,6 +118,17 @@ class FileConfiguration(private val channels: ChannelsConfiguration) {
 			}
 		}
 	}
+}
+
+```
+
+
+At this point, this flow is done. There's nowhere to go for a mesage. We've run out of track for our train! We need to lay down two more flows. One supporting files that end in `csv` and another supporting files ending in `txt`. Let's look at that.
+
+In the same configuration class, add two more integratino flow bean definitions. 
+
+
+```kotlin
 
 	@Bean
 	fun csvFlow() = integrationFlow(channels.csv()) {
@@ -120,6 +139,9 @@ class FileConfiguration(private val channels: ChannelsConfiguration) {
 	fun txtFlow() = integrationFlow(channels.txt()) {
 		handle(Files.outboundAdapter(txt).autoCreateDirectory(true))
 	}
-}
+````
 
-```
+This should look fairly similar to what youve seen thus far except that the thing that starts the flow is not an inbound adapter, its any message that cmoes off of a message channel. The first flow, `csvFlow`, kicks off when messages arrive from the `csv` message channel. the same is true fo the second flow, `txtFlow`. Both flows terminate rather abruptly, only doing one thing. hey forward the message to an outbound  adapter tht in turn writes the file to some other directory. The outbound adapte  is the mirror image of the inbound adapter. It takes a message from the Spring Integration flow and sends it to some sink in the real world - int hsi case a file system. The inbound adapter takes values from the real world and turns them into Spring Integration messages. 
+
+At this point, we've got a working processin flow. I have sort of hand-waived away the question of what happesn tot he message if it isnt a `txt` or a `csv` file and ends up being routed to the `errors` channel? As I allued earlier, the skys the lmitt here.
+
