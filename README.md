@@ -1,4 +1,4 @@
-
+# The Kotlin Spring Integration DSL 
 
 Hi, Spring fans! In this installment, we're going to take a look at the new Kotlin DSL for Spring Integration. I've covered both Spring Integration and Kotlin in other videos before.   I am _pretty_ sure I've also used Spring Integration from within a Kotlin-based Spring application, but this is the first time I've been able to cover a Kotlin DSL specifically for Spring Integration. 
 
